@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: java-aks-demo
+  namespace: java-aks-demo
+spec:
+  type: LoadBalancer
+  selector:
+    app: java-aks-demo
+  ports:
+    - port: 80
+      targetPort: 8080
