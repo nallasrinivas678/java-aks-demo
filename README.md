@@ -216,3 +216,45 @@ If step 2 (`mvn -B verify`) had failed instead, the pipeline would have stopped
 right there — `build-push-deploy` would never run, no image would be built, and
 production would be untouched. That's the safety gate this pipeline is built
 around.
+
+## 7. Azure resources created for this deployment
+
+> As deployed 2026-07-04, subscription `Pay-As-You-Go`
+> (`139828f2-1cfc-4c8b-8f0c-64a457da1e9d`), tenant `4b07b1cc-bd34-4e95-bcf7-ddb52315ed20`.
+> **These resources were torn down** after this deployment was demoed — this
+> section is kept as a record of what the pipeline provisions/relies on if it's
+> set up again.
+
+### Resource group: `rg-java-aks-demo` (East US)
+
+| Resource | Type | Purpose |
+|---|---|---|
+| `javaaksdemoacr89692` | Container Registry (ACR) | Stores the Docker images built by CI, tagged by commit SHA. Referenced by `ACR_NAME`/`ACR_LOGIN_SERVER` in [ci-cd.yml](.github/workflows/ci-cd.yml). |
+| `aks-java-aks-demo` | AKS managed cluster | Runs the application pods. Referenced by `AKS_CLUSTER` in [ci-cd.yml](.github/workflows/ci-cd.yml). |
+
+### Auto-created node resource group
+
+| Resource | Type | Purpose |
+|---|---|---|
+| `MC_rg-java-aks-demo_aks-java-aks-demo_eastus` | Resource group | Created automatically by AKS to hold the actual worker node VMs, the LoadBalancer, its public IP, disks, and the virtual network. Not managed directly — it's tied to the cluster's lifecycle and gets cleaned up when the AKS cluster is deleted. |
+
+### Azure AD (Entra ID) objects — used for GitHub OIDC login
+
+These live at the tenant level, not inside the resource group, so deleting the
+resource group does **not** remove them.
+
+| Object | Name / ID | Purpose |
+|---|---|---|
+| App registration | `gh-java-aks-demo` (App ID `44d1e5d1-52c3-42e3-b88a-eabae1c75c26`) | The identity the GitHub Actions workflow authenticates as via `azure/login@v2`. |
+| Federated credential | `gh-java-aks-demo-main`, subject `repo:nallasrinivas678/java-aks-demo:ref:refs/heads/main` | Trusts GitHub's OIDC token for this exact repo + branch — no client secret/password stored anywhere. |
+| Service principal | (tied to the app registration above) | The security-principal role assignments below are granted to. |
+| Role assignment | `AcrPush` on `javaaksdemoacr89692` | Lets the pipeline push images to ACR. |
+| Role assignment | `Azure Kubernetes Service Cluster User Role` on `aks-java-aks-demo` | Lets the pipeline fetch cluster credentials via `azure/aks-set-context@v4` and run `kubectl`. |
+
+### Kubernetes objects (inside the cluster, defined in [k8s/](k8s/))
+
+| Object | Name | Notes |
+|---|---|---|
+| Namespace | `java-aks-demo` | [k8s/namespace.yaml](k8s/namespace.yaml) |
+| Deployment | `java-aks-demo` | 2 replicas, [k8s/deployment.yaml](k8s/deployment.yaml) |
+| Service | `java-aks-demo` (`LoadBalancer`) | Had external IP `52.150.32.98` while live, [k8s/service.yaml](k8s/service.yaml) |
