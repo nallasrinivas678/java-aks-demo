@@ -21,7 +21,7 @@ class ItemControllerTests {
     void helloReturnsGreeting() throws Exception {
         mockMvc.perform(get("/api/hello"))
                 .andExpect(status().isOk())
-                .andExpect(content().string("this assertion is intentionally wrong to test the CI safety gate"));
+                .andExpect(content().string("Hello from java-aks-demo running on AKS!"));
     }
 
     @Test
